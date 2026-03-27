@@ -4,7 +4,9 @@ use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::process;
+use std::ffi::CString;
+use nix::sys::wait::waitpid;
+use nix::unistd::{self, ForkResult};
 
 fn main() {
     loop {
@@ -58,10 +60,25 @@ fn eval_command(command: &str, args: Vec<&str>) {
         _ => {
             match find_in_path(command) {
                 Some(path) => {
-                    process::Command::new(path)
-                        .args(&args)
-                        .status()
-                        .unwrap();
+                    let mut full_args: Vec<&str> = vec![command];
+                    full_args.extend(args.iter());
+                    let c_path = CString::new(path).unwrap();
+                    let c_args: Vec<CString> = full_args
+                        .iter()
+                        .map(|&s| CString::new(s).unwrap())
+                        .collect();
+                    match unsafe { unistd::fork() } {
+                        Ok(ForkResult::Parent { child }) => {
+                            let _ = waitpid(child, None);
+                        }
+                        Ok(ForkResult::Child) => {
+                            let _ = unistd::execvp(&c_path, &c_args);
+                            std::process::exit(1);
+                        }
+                        Err(_) => {
+                            panic!("fork failed");
+                        }
+                    }
                 }
                 None => println!("{}: command not found", command),
             }

@@ -1,6 +1,9 @@
-use pathsearch::find_executable_in_path;
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::env;
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 fn main() {
     loop {
@@ -33,10 +36,30 @@ fn eval_command(command: &str, args: Vec<&str>) {
     if command == "type" {
         if known_commands.contains(&args[0]) {
             println!("{} is a shell builtin", args[0]);
-        } else if let Some(path) = find_executable_in_path(args[0]) {
-            println!("{} is {}", args[0], path.display());
         } else {
-            println!("{}: not found", args[0]);
+            let path_env = env::var("PATH");
+            let mut found = false;
+            if let Ok(path_val) = path_env {
+                for dir in path_val.split(':') {
+                    let full_path = format!("{}/{}", dir, args[0]);
+                    let path = Path::new(&full_path);
+                    if path.exists() {
+                        if let Ok(metadata) = fs::metadata(path) {
+                            let permissions = metadata.permissions();
+                            let mode = permissions.mode();
+                            // Check if execute bit is set for user, group, or others
+                            if mode & 0o111 != 0 {
+                                println!("{} is {}", args[0], full_path);
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if !found {
+                println!("{}: not found", args[0]);
+            }
         }
     }
 }

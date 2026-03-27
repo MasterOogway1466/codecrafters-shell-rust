@@ -4,6 +4,7 @@ use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use std::process;
 
 fn main() {
     loop {
@@ -20,45 +21,49 @@ fn main() {
     }
 }
 
-fn eval_command(command: &str, args: Vec<&str>) {
-    let known_commands = ["exit", "echo", "type"];
-    if !known_commands.contains(&command) {
-        println!("{}: command not found", command);
-        return;
-    }
-    if command == "echo" {
-        for arg in &args {
-            print!("{} ", arg);
-        }
-        println!();
-        return;
-    }
-    if command == "type" {
-        if known_commands.contains(&args[0]) {
-            println!("{} is a shell builtin", args[0]);
-        } else {
-            let path_env = env::var("PATH");
-            let mut found = false;
-            if let Ok(path_val) = path_env {
-                for dir in path_val.split(':') {
-                    let full_path = format!("{}/{}", dir, args[0]);
-                    let path = Path::new(&full_path);
-                    if path.exists() {
-                        if let Ok(metadata) = fs::metadata(path) {
-                            let permissions = metadata.permissions();
-                            let mode = permissions.mode();
-                            // Check if execute bit is set for user, group, or others
-                            if mode & 0o111 != 0 {
-                                println!("{} is {}", args[0], full_path);
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
+fn find_in_path(name: &str) -> Option<String> {
+    let path_env = env::var("PATH").ok()?;
+    for dir in path_env.split(':') {
+        let full_path = format!("{}/{}", dir, name);
+        let path = Path::new(&full_path);
+        if path.exists() {
+            if let Ok(metadata) = fs::metadata(path) {
+                if metadata.permissions().mode() & 0o111 != 0 {
+                    return Some(full_path);
                 }
             }
-            if !found {
-                println!("{}: not found", args[0]);
+        }
+    }
+    None
+}
+
+fn eval_command(command: &str, args: Vec<&str>) {
+    let known_commands = ["exit", "echo", "type"];
+
+    match command {
+        "echo" => {
+            println!("{}", args.join(" "));
+        }
+        "type" => {
+            let target = args[0];
+            if known_commands.contains(&target) {
+                println!("{} is a shell builtin", target);
+            } else {
+                match find_in_path(target) {
+                    Some(path) => println!("{} is {}", target, path),
+                    None => println!("{}: not found", target),
+                }
+            }
+        }
+        _ => {
+            match find_in_path(command) {
+                Some(path) => {
+                    process::Command::new(path)
+                        .args(&args)
+                        .status()
+                        .unwrap();
+                }
+                None => println!("{}: command not found", command),
             }
         }
     }

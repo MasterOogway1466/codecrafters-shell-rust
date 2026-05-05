@@ -1,14 +1,38 @@
 use std::env;
 use std::ffi::CString;
-use std::fs;
+use std::fs::{self, File};
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::io::AsRawFd;
 use std::path::Path;
 
+use nix::libc;
 use nix::sys::wait::waitpid;
 use nix::unistd::{self, ForkResult};
 
 const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
+
+struct Redirect {
+    stdout_file: Option<String>,
+}
+
+fn parse_redirects(tokens: Vec<String>) -> (Vec<String>, Redirect) {
+    let mut args = Vec::new();
+    let mut redirect = Redirect { stdout_file: None };
+    let mut iter = tokens.into_iter();
+
+    while let Some(token) = iter.next() {
+        if token == ">" || token == "1>" {
+            if let Some(file) = iter.next() {
+                redirect.stdout_file = Some(file);
+            }
+        } else {
+            args.push(token);
+        }
+    }
+
+    (args, redirect)
+}
 
 fn main() {
     loop {
@@ -27,8 +51,9 @@ fn main() {
             break;
         }
 
+        let (tokens, redirect) = parse_redirects(tokens);
         let (cmd, args) = tokens.split_first().unwrap();
-        eval_command(cmd, args);
+        eval_command(cmd, args, &redirect);
     }
 }
 
@@ -109,7 +134,7 @@ fn resolve_home(path: &str) -> String {
     }
 }
 
-fn run_external(command: &str, args: &[String]) {
+fn run_external(command: &str, args: &[String], redirect: &Redirect) {
     let Some(path) = find_in_path(command) else {
         println!("{}: command not found", command);
         return;
@@ -126,6 +151,10 @@ fn run_external(command: &str, args: &[String]) {
             let _ = waitpid(child, None);
         }
         Ok(ForkResult::Child) => {
+            if let Some(ref file_path) = redirect.stdout_file {
+                let file = File::create(file_path).unwrap();
+                unsafe { libc::dup2(file.as_raw_fd(), libc::STDOUT_FILENO); }
+            }
             let _ = unistd::execvp(&c_path, &c_args);
             std::process::exit(1);
         }
@@ -133,22 +162,26 @@ fn run_external(command: &str, args: &[String]) {
     }
 }
 
-fn eval_command(command: &str, args: &[String]) {
+fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
     match command {
-        "echo" => println!("{}", args.join(" ")),
+        "echo" => {
+            let output = args.join(" ");
+            write_output(&output, redirect);
+        }
         "type" => {
             let target = &args[0];
-            if BUILTINS.contains(&target.as_str()) {
-                println!("{} is a shell builtin", target);
+            let output = if BUILTINS.contains(&target.as_str()) {
+                format!("{} is a shell builtin", target)
             } else {
                 match find_in_path(target) {
-                    Some(path) => println!("{} is {}", target, path),
-                    None => println!("{}: not found", target),
+                    Some(path) => format!("{} is {}", target, path),
+                    None => format!("{}: not found", target),
                 }
-            }
+            };
+            write_output(&output, redirect);
         }
         "pwd" => match env::current_dir() {
-            Ok(path) => println!("{}", path.display()),
+            Ok(path) => write_output(&path.display().to_string(), redirect),
             Err(_) => println!("Error getting current directory"),
         },
         "cd" => {
@@ -161,6 +194,16 @@ fn eval_command(command: &str, args: &[String]) {
                 println!("cd: {}: No such file or directory", target);
             }
         }
-        _ => run_external(command, args),
+        _ => run_external(command, args, redirect),
+    }
+}
+
+fn write_output(output: &str, redirect: &Redirect) {
+    match redirect.stdout_file {
+        Some(ref file_path) => {
+            let mut file = File::create(file_path).unwrap();
+            writeln!(file, "{}", output).unwrap();
+        }
+        None => println!("{}", output),
     }
 }

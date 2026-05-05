@@ -1,12 +1,13 @@
 use std::env;
 use std::ffi::CString;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
 
 use nix::libc;
+use nix::sys::termios::{self, LocalFlags, SetArg};
 use nix::sys::wait::waitpid;
 use nix::unistd::{self, ForkResult};
 
@@ -58,14 +59,72 @@ fn parse_redirects(tokens: Vec<String>) -> (Vec<String>, Redirect) {
     (args, redirect)
 }
 
+fn read_line_with_tab() -> String {
+    let stdin = io::stdin();
+    let orig_termios = termios::tcgetattr(&stdin).unwrap();
+
+    let mut raw = orig_termios.clone();
+    raw.local_flags &= !(LocalFlags::ICANON | LocalFlags::ECHO);
+    termios::tcsetattr(&stdin, SetArg::TCSANOW, &raw).unwrap();
+
+    let mut input = String::new();
+    let mut buf = [0u8; 1];
+
+    loop {
+        io::stdin().read_exact(&mut buf).unwrap();
+        match buf[0] {
+            b'\n' => {
+                print!("\n");
+                io::stdout().flush().unwrap();
+                break;
+            }
+            b'\t' => {
+                if let Some(completion) = find_completion(&input) {
+                    let suffix = completion[input.len()..].to_string();
+                    input = completion;
+                    input.push(' ');
+                    print!("{} ", suffix);
+                    io::stdout().flush().unwrap();
+                }
+            }
+            127 | 8 => {
+                // Backspace
+                if !input.is_empty() {
+                    input.pop();
+                    print!("\x08 \x08");
+                    io::stdout().flush().unwrap();
+                }
+            }
+            c => {
+                input.push(c as char);
+                print!("{}", c as char);
+                io::stdout().flush().unwrap();
+            }
+        }
+    }
+
+    termios::tcsetattr(&stdin, SetArg::TCSANOW, &orig_termios).unwrap();
+    input
+}
+
+fn find_completion(partial: &str) -> Option<String> {
+    if partial.is_empty() {
+        return None;
+    }
+    let matches: Vec<&&str> = BUILTINS.iter().filter(|b| b.starts_with(partial) && **b != partial).collect();
+    if matches.len() == 1 {
+        Some(matches[0].to_string())
+    } else {
+        None
+    }
+}
+
 fn main() {
     loop {
         print!("$ ");
         io::stdout().flush().unwrap();
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        input.pop();
+        let input = read_line_with_tab();
 
         let tokens = parse_input(&input);
         if tokens.is_empty() {

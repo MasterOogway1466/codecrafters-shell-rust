@@ -1,12 +1,14 @@
 mod completion;
 mod exec;
 mod parser;
+mod pipeline;
 
 use std::io::{self, Write};
 
 use completion::read_line_with_tab;
 use exec::eval_command;
 use parser::{parse_input, parse_redirects};
+use pipeline::run_pipeline;
 
 pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
@@ -25,8 +27,18 @@ fn main() {
             break;
         }
 
-        let (tokens, redirect) = parse_redirects(tokens);
-        let (cmd, args) = tokens.split_first().unwrap();
-        eval_command(cmd, args, &redirect);
+        // Split tokens at pipe operators
+        let commands: Vec<Vec<String>> = tokens
+            .split(|t| t == "|")
+            .map(|s| s.to_vec())
+            .collect();
+
+        if commands.len() > 1 {
+            run_pipeline(&commands);
+        } else {
+            let (tokens, redirect) = parse_redirects(commands.into_iter().next().unwrap());
+            let (cmd, args) = tokens.split_first().unwrap();
+            eval_command(cmd, args, &redirect);
+        }
     }
 }

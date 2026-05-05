@@ -172,6 +172,10 @@ fn run_external(command: &str, args: &[String], redirect: &Redirect) {
 }
 
 fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
+    if let Some(ref file_path) = redirect.stderr_file {
+        File::create(file_path).unwrap();
+    }
+
     match command {
         "echo" => {
             let output = args.join(" ");

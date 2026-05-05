@@ -124,20 +124,28 @@ fn find_command_completions(partial: &str) -> Vec<String> {
 
 fn find_file_completions(input: &str) -> Vec<String> {
     let last_space = input.rfind(' ').unwrap_or(0);
-    let prefix = &input[last_space + 1..];
+    let partial_path = &input[last_space + 1..];
     let base = &input[..last_space + 1];
 
-    if prefix.is_empty() {
+    if partial_path.is_empty() {
         return Vec::new();
     }
 
+    let (dir, file_prefix) = if let Some(slash_pos) = partial_path.rfind('/') {
+        (&partial_path[..slash_pos + 1], &partial_path[slash_pos + 1..])
+    } else {
+        ("", partial_path)
+    };
+
+    let search_dir = if dir.is_empty() { ".".to_string() } else { dir.to_string() };
+
     let mut matches: Vec<String> = Vec::new();
 
-    if let Ok(entries) = fs::read_dir(".") {
+    if let Ok(entries) = fs::read_dir(&search_dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str() {
-                if name.starts_with(prefix) && name != prefix {
-                    matches.push(format!("{}{}", base, name));
+                if name.starts_with(file_prefix) && name != file_prefix {
+                    matches.push(format!("{}{}{}", base, dir, name));
                 }
             }
         }

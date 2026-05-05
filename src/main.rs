@@ -14,17 +14,22 @@ const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
 struct Redirect {
     stdout_file: Option<String>,
+    stderr_file: Option<String>,
 }
 
 fn parse_redirects(tokens: Vec<String>) -> (Vec<String>, Redirect) {
     let mut args = Vec::new();
-    let mut redirect = Redirect { stdout_file: None };
+    let mut redirect = Redirect { stdout_file: None, stderr_file: None };
     let mut iter = tokens.into_iter();
 
     while let Some(token) = iter.next() {
         if token == ">" || token == "1>" {
             if let Some(file) = iter.next() {
                 redirect.stdout_file = Some(file);
+            }
+        } else if token == "2>" {
+            if let Some(file) = iter.next() {
+                redirect.stderr_file = Some(file);
             }
         } else {
             args.push(token);
@@ -154,6 +159,10 @@ fn run_external(command: &str, args: &[String], redirect: &Redirect) {
             if let Some(ref file_path) = redirect.stdout_file {
                 let file = File::create(file_path).unwrap();
                 unsafe { libc::dup2(file.as_raw_fd(), libc::STDOUT_FILENO); }
+            }
+            if let Some(ref file_path) = redirect.stderr_file {
+                let file = File::create(file_path).unwrap();
+                unsafe { libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO); }
             }
             let _ = unistd::execvp(&c_path, &c_args);
             std::process::exit(1);

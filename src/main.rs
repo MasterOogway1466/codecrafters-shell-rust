@@ -69,6 +69,8 @@ fn read_line_with_tab() -> String {
 
     let mut input = String::new();
     let mut buf = [0u8; 1];
+    let mut tab_count = 0u8;
+    let mut last_tab_input = String::new();
 
     loop {
         io::stdin().read_exact(&mut buf).unwrap();
@@ -79,12 +81,28 @@ fn read_line_with_tab() -> String {
                 break;
             }
             b'\t' => {
-                if let Some(completion) = find_completion(&input) {
-                    let suffix = completion[input.len()..].to_string();
-                    input = completion;
+                if input != last_tab_input {
+                    tab_count = 0;
+                    last_tab_input = input.clone();
+                }
+                tab_count += 1;
+
+                let matches = find_completions(&input);
+                if matches.len() == 1 {
+                    let suffix = matches[0][input.len()..].to_string();
+                    input = matches[0].clone();
                     input.push(' ');
                     print!("{} ", suffix);
                     io::stdout().flush().unwrap();
+                    tab_count = 0;
+                } else if matches.len() > 1 {
+                    if tab_count == 1 {
+                        print!("\x07");
+                        io::stdout().flush().unwrap();
+                    } else {
+                        print!("\n{}  \n$ {}", matches.join("  "), input);
+                        io::stdout().flush().unwrap();
+                    }
                 } else {
                     print!("\x07");
                     io::stdout().flush().unwrap();
@@ -97,11 +115,13 @@ fn read_line_with_tab() -> String {
                     print!("\x08 \x08");
                     io::stdout().flush().unwrap();
                 }
+                tab_count = 0;
             }
             c => {
                 input.push(c as char);
                 print!("{}", c as char);
                 io::stdout().flush().unwrap();
+                tab_count = 0;
             }
         }
     }
@@ -110,9 +130,9 @@ fn read_line_with_tab() -> String {
     input
 }
 
-fn find_completion(partial: &str) -> Option<String> {
+fn find_completions(partial: &str) -> Vec<String> {
     if partial.is_empty() {
-        return None;
+        return Vec::new();
     }
 
     let mut matches: Vec<String> = BUILTINS
@@ -139,11 +159,8 @@ fn find_completion(partial: &str) -> Option<String> {
         }
     }
 
-    if matches.len() == 1 {
-        Some(matches.remove(0))
-    } else {
-        None
-    }
+    matches.sort();
+    matches
 }
 
 fn main() {

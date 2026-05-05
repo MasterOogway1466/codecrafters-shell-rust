@@ -64,7 +64,14 @@ pub fn read_line_with_tab() -> String {
                         print!("\x07");
                         io::stdout().flush().unwrap();
                     } else {
-                        print!("\n{}\n$ {}", matches.join("  "), input);
+                        let display: Vec<String> = if input.contains(' ') {
+                            let last_space = input.rfind(' ').unwrap_or(0);
+                            let base_len = last_space + 1;
+                            matches.iter().map(|m| m[base_len..].to_string()).collect()
+                        } else {
+                            matches.clone()
+                        };
+                        print!("\n{}\n$ {}", display.join("  "), input);
                         io::stdout().flush().unwrap();
                     }
                 } else {

@@ -1,6 +1,6 @@
 use std::env;
 use std::ffi::CString;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::AsRawFd;
@@ -14,22 +14,41 @@ const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
 struct Redirect {
     stdout_file: Option<String>,
+    stdout_append: bool,
     stderr_file: Option<String>,
+    stderr_append: bool,
 }
 
 fn parse_redirects(tokens: Vec<String>) -> (Vec<String>, Redirect) {
     let mut args = Vec::new();
-    let mut redirect = Redirect { stdout_file: None, stderr_file: None };
+    let mut redirect = Redirect {
+        stdout_file: None,
+        stdout_append: false,
+        stderr_file: None,
+        stderr_append: false,
+    };
     let mut iter = tokens.into_iter();
 
     while let Some(token) = iter.next() {
-        if token == ">" || token == "1>" {
+        if token == ">>" || token == "1>>" {
             if let Some(file) = iter.next() {
                 redirect.stdout_file = Some(file);
+                redirect.stdout_append = true;
+            }
+        } else if token == ">" || token == "1>" {
+            if let Some(file) = iter.next() {
+                redirect.stdout_file = Some(file);
+                redirect.stdout_append = false;
+            }
+        } else if token == "2>>" {
+            if let Some(file) = iter.next() {
+                redirect.stderr_file = Some(file);
+                redirect.stderr_append = true;
             }
         } else if token == "2>" {
             if let Some(file) = iter.next() {
                 redirect.stderr_file = Some(file);
+                redirect.stderr_append = false;
             }
         } else {
             args.push(token);
@@ -157,11 +176,11 @@ fn run_external(command: &str, args: &[String], redirect: &Redirect) {
         }
         Ok(ForkResult::Child) => {
             if let Some(ref file_path) = redirect.stdout_file {
-                let file = File::create(file_path).unwrap();
+                let file = open_redirect_file(file_path, redirect.stdout_append);
                 unsafe { libc::dup2(file.as_raw_fd(), libc::STDOUT_FILENO); }
             }
             if let Some(ref file_path) = redirect.stderr_file {
-                let file = File::create(file_path).unwrap();
+                let file = open_redirect_file(file_path, redirect.stderr_append);
                 unsafe { libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO); }
             }
             let _ = unistd::execvp(&c_path, &c_args);
@@ -173,7 +192,7 @@ fn run_external(command: &str, args: &[String], redirect: &Redirect) {
 
 fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
     if let Some(ref file_path) = redirect.stderr_file {
-        File::create(file_path).unwrap();
+        open_redirect_file(file_path, redirect.stderr_append);
     }
 
     match command {
@@ -204,19 +223,37 @@ fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
                 resolve_home(&args[0])
             };
             if env::set_current_dir(Path::new(&target)).is_err() {
-                println!("cd: {}: No such file or directory", target);
+                write_error(&format!("cd: {}: No such file or directory", target), redirect);
             }
         }
         _ => run_external(command, args, redirect),
     }
 }
 
+fn open_redirect_file(path: &str, append: bool) -> File {
+    if append {
+        OpenOptions::new().create(true).append(true).open(path).unwrap()
+    } else {
+        File::create(path).unwrap()
+    }
+}
+
 fn write_output(output: &str, redirect: &Redirect) {
     match redirect.stdout_file {
         Some(ref file_path) => {
-            let mut file = File::create(file_path).unwrap();
+            let mut file = open_redirect_file(file_path, redirect.stdout_append);
             writeln!(file, "{}", output).unwrap();
         }
         None => println!("{}", output),
+    }
+}
+
+fn write_error(output: &str, redirect: &Redirect) {
+    match redirect.stderr_file {
+        Some(ref file_path) => {
+            let mut file = open_redirect_file(file_path, redirect.stderr_append);
+            writeln!(file, "{}", output).unwrap();
+        }
+        None => eprintln!("{}", output),
     }
 }

@@ -35,7 +35,11 @@ pub fn read_line_with_tab() -> String {
                 }
                 tab_count += 1;
 
-                let matches = find_completions(&input);
+                let matches = if input.contains(' ') {
+                    find_file_completions(&input)
+                } else {
+                    find_command_completions(&input)
+                };
                 if matches.len() == 1 {
                     let suffix = matches[0][input.len()..].to_string();
                     input = matches[0].clone();
@@ -85,7 +89,7 @@ pub fn read_line_with_tab() -> String {
     input
 }
 
-fn find_completions(partial: &str) -> Vec<String> {
+fn find_command_completions(partial: &str) -> Vec<String> {
     if partial.is_empty() {
         return Vec::new();
     }
@@ -109,6 +113,31 @@ fn find_completions(partial: &str) -> Vec<String> {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    matches.sort();
+    matches
+}
+
+fn find_file_completions(input: &str) -> Vec<String> {
+    let last_space = input.rfind(' ').unwrap_or(0);
+    let prefix = &input[last_space + 1..];
+    let base = &input[..last_space + 1];
+
+    if prefix.is_empty() {
+        return Vec::new();
+    }
+
+    let mut matches: Vec<String> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(".") {
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if name.starts_with(prefix) && name != prefix {
+                    matches.push(format!("{}{}", base, name));
                 }
             }
         }

@@ -96,11 +96,19 @@ fn read_line_with_tab() -> String {
                     io::stdout().flush().unwrap();
                     tab_count = 0;
                 } else if matches.len() > 1 {
-                    if tab_count == 1 {
+                    let lcp = longest_common_prefix(&matches);
+                    if lcp.len() > input.len() {
+                        let suffix = lcp[input.len()..].to_string();
+                        input = lcp;
+                        print!("{}", suffix);
+                        io::stdout().flush().unwrap();
+                        last_tab_input = input.clone();
+                        tab_count = 0;
+                    } else if tab_count == 1 {
                         print!("\x07");
                         io::stdout().flush().unwrap();
                     } else {
-                        print!("\n{}  \n$ {}", matches.join("  "), input);
+                        print!("\n{}\n$ {}", matches.join("  "), input);
                         io::stdout().flush().unwrap();
                     }
                 } else {
@@ -161,6 +169,24 @@ fn find_completions(partial: &str) -> Vec<String> {
 
     matches.sort();
     matches
+}
+
+fn longest_common_prefix(strings: &[String]) -> String {
+    if strings.is_empty() {
+        return String::new();
+    }
+    let first = &strings[0];
+    let mut len = first.len();
+    for s in &strings[1..] {
+        len = len.min(s.len());
+        for (i, (a, b)) in first.chars().zip(s.chars()).enumerate() {
+            if a != b {
+                len = len.min(i);
+                break;
+            }
+        }
+    }
+    first[..len].to_string()
 }
 
 fn main() {

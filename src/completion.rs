@@ -151,8 +151,8 @@ fn find_file_completions(input: &str) -> Vec<String> {
     if let Ok(entries) = fs::read_dir(&search_dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str() {
-                if name.starts_with(file_prefix) && (file_prefix.is_empty() || name != file_prefix) {
-                    let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+                let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+                if name.starts_with(file_prefix) && (file_prefix.is_empty() || name != file_prefix || is_dir) {
                     let suffix = if is_dir { "/" } else { "" };
                     matches.push(format!("{}{}{}{}", base, dir, name, suffix));
                 }

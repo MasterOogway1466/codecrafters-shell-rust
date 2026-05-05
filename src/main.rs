@@ -49,6 +49,14 @@ fn parse_input(input: &str) -> Vec<String> {
         } else if in_double_quote {
             if c == '"' {
                 in_double_quote = false;
+            } else if c == '\\' {
+                match chars.peek() {
+                    Some(&next) if next == '"' || next == '\\' || next == '$' || next == '`' || next == '\n' => {
+                        current.push(next);
+                        chars.next();
+                    }
+                    _ => current.push(c),
+                }
             } else {
                 current.push(c);
             }

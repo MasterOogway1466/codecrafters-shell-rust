@@ -114,9 +114,33 @@ fn find_completion(partial: &str) -> Option<String> {
     if partial.is_empty() {
         return None;
     }
-    let matches: Vec<&&str> = BUILTINS.iter().filter(|b| b.starts_with(partial) && **b != partial).collect();
+
+    let mut matches: Vec<String> = BUILTINS
+        .iter()
+        .filter(|b| b.starts_with(partial) && **b != partial)
+        .map(|b| b.to_string())
+        .collect();
+
+    if let Ok(path_env) = env::var("PATH") {
+        for dir in path_env.split(':') {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.starts_with(partial) && name != partial && !matches.contains(&name.to_string()) {
+                            if let Ok(meta) = entry.metadata() {
+                                if meta.permissions().mode() & 0o111 != 0 {
+                                    matches.push(name.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if matches.len() == 1 {
-        Some(matches[0].to_string())
+        Some(matches.remove(0))
     } else {
         None
     }

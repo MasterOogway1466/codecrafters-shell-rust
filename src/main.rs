@@ -36,6 +36,7 @@ fn parse_input(input: &str) -> Vec<String> {
     let mut tokens: Vec<String> = Vec::new();
     let mut current = String::new();
     let mut in_single_quote = false;
+    let mut in_double_quote = false;
 
     for c in input.chars() {
         if in_single_quote {
@@ -44,9 +45,16 @@ fn parse_input(input: &str) -> Vec<String> {
             } else {
                 current.push(c);
             }
+        } else if in_double_quote {
+            if c == '"' {
+                in_double_quote = false;
+            } else {
+                current.push(c);
+            }
         } else {
             match c {
                 '\'' => in_single_quote = true,
+                '"' => in_double_quote = true,
                 ' ' | '\t' => {
                     if !current.is_empty() {
                         tokens.push(std::mem::take(&mut current));

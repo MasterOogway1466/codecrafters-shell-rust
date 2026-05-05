@@ -85,6 +85,9 @@ fn read_line_with_tab() -> String {
                     input.push(' ');
                     print!("{} ", suffix);
                     io::stdout().flush().unwrap();
+                } else {
+                    print!("\x07");
+                    io::stdout().flush().unwrap();
                 }
             }
             127 | 8 => {

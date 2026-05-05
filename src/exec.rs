@@ -9,6 +9,7 @@ use nix::libc;
 use nix::sys::wait::waitpid;
 use nix::unistd::{self, ForkResult};
 
+use crate::history;
 use crate::parser::{open_redirect_file, write_error, write_output, Redirect};
 use crate::BUILTINS;
 
@@ -103,6 +104,9 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
             if env::set_current_dir(Path::new(&target)).is_err() {
                 write_error(&format!("cd: {}: No such file or directory", target), redirect);
             }
+        }
+        "history" => {
+            history::print_history();
         }
         _ => run_external(command, args, redirect),
     }

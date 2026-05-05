@@ -1,5 +1,6 @@
 mod completion;
 mod exec;
+mod history;
 mod parser;
 mod pipeline;
 
@@ -10,7 +11,7 @@ use exec::eval_command;
 use parser::{parse_input, parse_redirects};
 use pipeline::run_pipeline;
 
-pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
+pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history"];
 
 fn main() {
     loop {
@@ -23,6 +24,9 @@ fn main() {
         if tokens.is_empty() {
             continue;
         }
+
+        history::add_to_history(&input);
+
         if tokens[0] == "exit" {
             break;
         }

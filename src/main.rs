@@ -37,8 +37,9 @@ fn parse_input(input: &str) -> Vec<String> {
     let mut current = String::new();
     let mut in_single_quote = false;
     let mut in_double_quote = false;
+    let mut chars = input.chars().peekable();
 
-    for c in input.chars() {
+    while let Some(c) = chars.next() {
         if in_single_quote {
             if c == '\'' {
                 in_single_quote = false;
@@ -53,6 +54,11 @@ fn parse_input(input: &str) -> Vec<String> {
             }
         } else {
             match c {
+                '\\' => {
+                    if let Some(next) = chars.next() {
+                        current.push(next);
+                    }
+                }
                 '\'' => in_single_quote = true,
                 '"' => in_double_quote = true,
                 ' ' | '\t' => {

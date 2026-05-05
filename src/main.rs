@@ -40,7 +40,7 @@ fn find_in_path(name: &str) -> Option<String> {
 }
 
 fn eval_command(command: &str, args: Vec<&str>) {
-    let known_commands = ["exit", "echo", "type", "pwd"];
+    let known_commands = ["exit", "echo", "type", "pwd", "cd"];
 
     match command {
         "echo" => {
@@ -61,6 +61,20 @@ fn eval_command(command: &str, args: Vec<&str>) {
             match env::current_dir() {
                 Ok(path) => println!("{}", path.display()),
                 Err(_) => println!("Error getting current directory"),
+            }
+        }
+        "cd" => {
+            let target = if args.is_empty() || args[0] == "~" {
+                env::var("HOME").unwrap_or_else(|_| "/".to_string())
+            } else if args[0].starts_with("~/") {
+                let home = env::var("HOME").unwrap_or_else(|_| "/".to_string());
+                format!("{}/{}", home, &args[0][2..])
+            } else {
+                args[0].to_string()
+            };
+            let path = Path::new(&target);
+            if let Err(_) = env::set_current_dir(path) {
+                println!("cd: {}: No such file or directory", target);
             }
         }
         _ => {

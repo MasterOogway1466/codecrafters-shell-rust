@@ -43,8 +43,12 @@ pub fn read_line_with_tab() -> String {
                 if matches.len() == 1 {
                     let suffix = matches[0][input.len()..].to_string();
                     input = matches[0].clone();
-                    input.push(' ');
-                    print!("{} ", suffix);
+                    if input.ends_with('/') {
+                        print!("{}", suffix);
+                    } else {
+                        input.push(' ');
+                        print!("{} ", suffix);
+                    }
                     io::stdout().flush().unwrap();
                     tab_count = 0;
                 } else if matches.len() > 1 {
@@ -145,7 +149,9 @@ fn find_file_completions(input: &str) -> Vec<String> {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str() {
                 if name.starts_with(file_prefix) && name != file_prefix {
-                    matches.push(format!("{}{}{}", base, dir, name));
+                    let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+                    let suffix = if is_dir { "/" } else { "" };
+                    matches.push(format!("{}{}{}{}", base, dir, name, suffix));
                 }
             }
         }

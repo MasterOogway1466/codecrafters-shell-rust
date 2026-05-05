@@ -109,6 +109,9 @@ pub fn run_pipeline(commands: &[Vec<String>]) {
 }
 
 fn setup_child_io(prev_read_fd: &Option<OwnedFd>, pipe_fds: &Option<(OwnedFd, OwnedFd)>, redirect: &Redirect) {
+    // Reset SIGPIPE to default so children die silently on broken pipe
+    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL); }
+
     // Redirect stdin from previous pipe's read end
     if let Some(read_fd) = prev_read_fd {
         unsafe { libc::dup2(read_fd.as_raw_fd(), libc::STDIN_FILENO); }

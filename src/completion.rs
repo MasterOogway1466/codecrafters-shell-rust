@@ -131,10 +131,6 @@ fn find_file_completions(input: &str) -> Vec<String> {
     let partial_path = &input[last_space + 1..];
     let base = &input[..last_space + 1];
 
-    if partial_path.is_empty() {
-        return Vec::new();
-    }
-
     let (dir, file_prefix) = if let Some(slash_pos) = partial_path.rfind('/') {
         (&partial_path[..slash_pos + 1], &partial_path[slash_pos + 1..])
     } else {
@@ -148,7 +144,7 @@ fn find_file_completions(input: &str) -> Vec<String> {
     if let Ok(entries) = fs::read_dir(&search_dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str() {
-                if name.starts_with(file_prefix) && name != file_prefix {
+                if name.starts_with(file_prefix) && (file_prefix.is_empty() || name != file_prefix) {
                     let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
                     let suffix = if is_dir { "/" } else { "" };
                     matches.push(format!("{}{}{}{}", base, dir, name, suffix));

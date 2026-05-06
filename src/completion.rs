@@ -46,6 +46,10 @@ pub fn build_editor() -> Editor<ShellHelper, rustyline::history::DefaultHistory>
     let config = Config::builder()
         .completion_type(CompletionType::List)
         .bell_style(rustyline::config::BellStyle::Audible)
+        .max_history_size(10000)
+        .unwrap()
+        .history_ignore_dups(false)
+        .unwrap()
         .build();
     let mut rl = Editor::with_config(config).unwrap();
     rl.set_helper(Some(ShellHelper));

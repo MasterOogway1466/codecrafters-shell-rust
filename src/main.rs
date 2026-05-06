@@ -24,6 +24,7 @@ fn main() {
     }
 
     loop {
+        jobs::reap_jobs();
         let readline = rl.readline("$ ");
         match readline {
             Ok(input) => {

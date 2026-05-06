@@ -64,7 +64,7 @@ pub fn run_background(command: &str, args: &[String]) {
     }
 }
 
-pub fn print_jobs() {
+pub fn reap_jobs() {
     JOBS.with(|jobs| {
         let mut jobs = jobs.borrow_mut();
 
@@ -83,9 +83,50 @@ pub fn print_jobs() {
             }
         }
 
-        // Print all jobs with correct markers
+        // Print Done lines for newly completed jobs
         let len = jobs.len();
         for (i, job) in jobs.iter().enumerate() {
+            if job.done {
+                let marker = if i == len - 1 {
+                    "+"
+                } else if i == len - 2 {
+                    "-"
+                } else {
+                    " "
+                };
+                println!("[{}]{}  {:<24}{}", job.id, marker, "Done", job.command);
+            }
+        }
+
+        // Remove done jobs
+        jobs.retain(|job| !job.done);
+    });
+}
+
+pub fn print_jobs() {
+    JOBS.with(|jobs| {
+        // First reap completed jobs
+        {
+            let mut jobs = jobs.borrow_mut();
+            for job in jobs.iter_mut() {
+                if !job.done {
+                    match waitpid(job.pid, Some(WaitPidFlag::WNOHANG)) {
+                        Ok(nix::sys::wait::WaitStatus::Exited(_, _)) => {
+                            job.done = true;
+                        }
+                        Ok(nix::sys::wait::WaitStatus::Signaled(_, _, _)) => {
+                            job.done = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Print all jobs with correct markers
+        let jobs_ref = jobs.borrow();
+        let len = jobs_ref.len();
+        for (i, job) in jobs_ref.iter().enumerate() {
             let marker = if i == len - 1 {
                 "+"
             } else if i == len - 2 {
@@ -101,6 +142,7 @@ pub fn print_jobs() {
         }
 
         // Remove done jobs
-        jobs.retain(|job| !job.done);
+        drop(jobs_ref);
+        jobs.borrow_mut().retain(|job| !job.done);
     });
 }

@@ -39,6 +39,20 @@ fn main() {
                     break;
                 }
 
+                // Check for background execution
+                let is_background = tokens.last().map(|t| t == "&").unwrap_or(false);
+                let tokens = if is_background {
+                    tokens[..tokens.len() - 1].to_vec()
+                } else {
+                    tokens
+                };
+
+                if is_background {
+                    let (cmd, args) = tokens.split_first().unwrap();
+                    jobs::run_background(cmd, args);
+                    continue;
+                }
+
                 // Split tokens at pipe operators
                 let commands: Vec<Vec<String>> = tokens
                     .split(|t| t == "|")

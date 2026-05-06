@@ -31,12 +31,12 @@ impl Completer for ShellHelper {
     ) -> RlResult<(usize, Vec<String>)> {
         let input = &line[..pos];
         if input.contains(' ') {
+            let last_space = input.rfind(' ').unwrap_or(0);
+            let start = last_space + 1;
             let completions = find_file_completions(input);
-            // Return replacements from position 0 (full line replacements)
-            Ok((0, completions))
+            Ok((start, completions))
         } else {
             let completions = find_command_completions(input);
-            // For commands, return full replacement candidates
             Ok((0, completions))
         }
     }
@@ -88,7 +88,6 @@ fn find_command_completions(partial: &str) -> Vec<String> {
 fn find_file_completions(input: &str) -> Vec<String> {
     let last_space = input.rfind(' ').unwrap_or(0);
     let partial_path = &input[last_space + 1..];
-    let base = &input[..last_space + 1];
 
     let (dir, file_prefix) = if let Some(slash_pos) = partial_path.rfind('/') {
         (&partial_path[..slash_pos + 1], &partial_path[slash_pos + 1..])
@@ -106,7 +105,7 @@ fn find_file_completions(input: &str) -> Vec<String> {
                 let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
                 if name.starts_with(file_prefix) && (file_prefix.is_empty() || name != file_prefix || is_dir) {
                     let suffix = if is_dir { "/" } else { "" };
-                    matches.push(format!("{}{}{}{}", base, dir, name, suffix));
+                    matches.push(format!("{}{}{}", dir, name, suffix));
                 }
             }
         }

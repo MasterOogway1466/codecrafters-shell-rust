@@ -2,15 +2,18 @@ use std::cell::RefCell;
 use std::ffi::CString;
 
 use nix::libc;
+use nix::sys::wait::{WaitPidFlag, waitpid};
 use nix::unistd::{self, ForkResult, Pid};
 
 use crate::exec::find_in_path;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 struct Job {
     id: usize,
     pid: Pid,
     command: String,
+    done: bool,
 }
 
 thread_local! {
@@ -47,6 +50,7 @@ pub fn run_background(command: &str, args: &[String]) {
                     id: job_id,
                     pid: child,
                     command: full_command,
+                    done: false,
                 });
             });
             println!("[{}] {}", job_id, child);
@@ -62,7 +66,24 @@ pub fn run_background(command: &str, args: &[String]) {
 
 pub fn print_jobs() {
     JOBS.with(|jobs| {
-        let jobs = jobs.borrow();
+        let mut jobs = jobs.borrow_mut();
+
+        // Check each job for completion
+        for job in jobs.iter_mut() {
+            if !job.done {
+                match waitpid(job.pid, Some(WaitPidFlag::WNOHANG)) {
+                    Ok(nix::sys::wait::WaitStatus::Exited(_, _)) => {
+                        job.done = true;
+                    }
+                    Ok(nix::sys::wait::WaitStatus::Signaled(_, _, _)) => {
+                        job.done = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Print all jobs with correct markers
         let len = jobs.len();
         for (i, job) in jobs.iter().enumerate() {
             let marker = if i == len - 1 {
@@ -72,7 +93,14 @@ pub fn print_jobs() {
             } else {
                 " "
             };
-            println!("[{}]{}  {:<24}{} &", job.id, marker, "Running", job.command);
+            if job.done {
+                println!("[{}]{}  {:<24}{}", job.id, marker, "Done", job.command);
+            } else {
+                println!("[{}]{}  {:<24}{} &", job.id, marker, "Running", job.command);
+            }
         }
+
+        // Remove done jobs
+        jobs.retain(|job| !job.done);
     });
 }

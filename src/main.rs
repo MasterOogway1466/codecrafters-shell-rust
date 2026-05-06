@@ -4,6 +4,8 @@ mod history;
 mod parser;
 mod pipeline;
 
+use std::env;
+
 use completion::build_editor;
 use exec::eval_command;
 use parser::{parse_input, parse_redirects};
@@ -13,6 +15,11 @@ pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history"];
 
 fn main() {
     let mut rl = build_editor();
+
+    // Load history from HISTFILE on startup
+    if let Ok(histfile) = env::var("HISTFILE") {
+        history::load_history_file(&mut rl, &histfile);
+    }
 
     loop {
         let readline = rl.readline("$ ");

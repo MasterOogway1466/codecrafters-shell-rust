@@ -73,4 +73,9 @@ fn main() {
             Err(_) => break,
         }
     }
+
+    // Save history to HISTFILE on exit
+    if let Ok(histfile) = env::var("HISTFILE") {
+        history::write_history_file(&rl, &histfile);
+    }
 }

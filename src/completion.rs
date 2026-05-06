@@ -104,7 +104,7 @@ fn find_file_completions(input: &str) -> Vec<String> {
             if let Some(name) = entry.file_name().to_str() {
                 let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
                 if name.starts_with(file_prefix) && (file_prefix.is_empty() || name != file_prefix || is_dir) {
-                    let suffix = if is_dir { "/" } else { "" };
+                    let suffix = if is_dir { "/" } else { " " };
                     matches.push(format!("{}{}{}", dir, name, suffix));
                 }
             }

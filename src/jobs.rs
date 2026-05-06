@@ -65,7 +65,13 @@ pub fn print_jobs() {
         let jobs = jobs.borrow();
         let len = jobs.len();
         for (i, job) in jobs.iter().enumerate() {
-            let marker = if i == len - 1 { "+" } else { "-" };
+            let marker = if i == len - 1 {
+                "+"
+            } else if i == len - 2 {
+                "-"
+            } else {
+                " "
+            };
             println!("[{}]{}  {:<24}{} &", job.id, marker, "Running", job.command);
         }
     });

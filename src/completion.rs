@@ -82,7 +82,7 @@ fn find_command_completions(partial: &str) -> Vec<String> {
     }
 
     matches.sort();
-    matches
+    matches.iter().map(|m| format!("{} ", m)).collect()
 }
 
 fn find_file_completions(input: &str) -> Vec<String> {

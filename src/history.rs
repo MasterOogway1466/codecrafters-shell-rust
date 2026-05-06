@@ -33,6 +33,10 @@ pub fn load_history_file(rl: &mut Editor<ShellHelper, rustyline::history::Defaul
     }
 }
 
+pub fn mark_appended(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>) {
+    LAST_APPENDED.with(|c| c.set(rl.history().len()));
+}
+
 pub fn write_history_file(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>, path: &str) {
     let hist = rl.history();
     let mut content = String::new();

@@ -20,6 +20,7 @@ fn main() {
     // Load history from HISTFILE on startup
     if let Ok(histfile) = env::var("HISTFILE") {
         history::load_history_file(&mut rl, &histfile);
+        history::mark_appended(&rl);
     }
 
     loop {

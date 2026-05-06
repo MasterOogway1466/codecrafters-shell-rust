@@ -26,3 +26,13 @@ pub fn load_history_file(rl: &mut Editor<ShellHelper, rustyline::history::Defaul
         }
     }
 }
+
+pub fn write_history_file(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>, path: &str) {
+    let hist = rl.history();
+    let mut content = String::new();
+    for entry in hist.iter() {
+        content.push_str(entry);
+        content.push('\n');
+    }
+    let _ = fs::write(path, content);
+}

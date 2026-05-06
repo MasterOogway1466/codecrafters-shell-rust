@@ -1,103 +1,55 @@
 use std::env;
 use std::fs;
-use std::io::{self, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 
-use nix::sys::termios::{self, LocalFlags, SetArg};
+use rustyline::completion::Completer;
+use rustyline::highlight::Highlighter;
+use rustyline::hint::Hinter;
+use rustyline::validate::Validator;
+use rustyline::{CompletionType, Config, Context, Editor, Helper, Result as RlResult};
 
 use crate::BUILTINS;
 
-pub fn read_line_with_tab() -> String {
-    let stdin = io::stdin();
-    let orig_termios = termios::tcgetattr(&stdin).unwrap();
+#[derive(Clone)]
+pub struct ShellHelper;
 
-    let mut raw = orig_termios.clone();
-    raw.local_flags &= !(LocalFlags::ICANON | LocalFlags::ECHO);
-    termios::tcsetattr(&stdin, SetArg::TCSANOW, &raw).unwrap();
+impl Helper for ShellHelper {}
+impl Highlighter for ShellHelper {}
+impl Hinter for ShellHelper {
+    type Hint = String;
+}
+impl Validator for ShellHelper {}
 
-    let mut input = String::new();
-    let mut buf = [0u8; 1];
-    let mut tab_count = 0u8;
-    let mut last_tab_input = String::new();
+impl Completer for ShellHelper {
+    type Candidate = String;
 
-    loop {
-        io::stdin().read_exact(&mut buf).unwrap();
-        match buf[0] {
-            b'\n' => {
-                print!("\n");
-                io::stdout().flush().unwrap();
-                break;
-            }
-            b'\t' => {
-                if input != last_tab_input {
-                    tab_count = 0;
-                    last_tab_input = input.clone();
-                }
-                tab_count += 1;
-
-                let matches = if input.contains(' ') {
-                    find_file_completions(&input)
-                } else {
-                    find_command_completions(&input)
-                };
-                if matches.len() == 1 {
-                    let suffix = matches[0][input.len()..].to_string();
-                    input = matches[0].clone();
-                    if input.ends_with('/') {
-                        print!("{}", suffix);
-                    } else {
-                        input.push(' ');
-                        print!("{} ", suffix);
-                    }
-                    io::stdout().flush().unwrap();
-                    tab_count = 0;
-                } else if matches.len() > 1 {
-                    let lcp = longest_common_prefix(&matches);
-                    if lcp.len() > input.len() {
-                        let suffix = lcp[input.len()..].to_string();
-                        input = lcp;
-                        print!("{}", suffix);
-                        io::stdout().flush().unwrap();
-                        last_tab_input = input.clone();
-                        tab_count = 0;
-                    } else if tab_count == 1 {
-                        print!("\x07");
-                        io::stdout().flush().unwrap();
-                    } else {
-                        let display: Vec<String> = if input.contains(' ') {
-                            let last_space = input.rfind(' ').unwrap_or(0);
-                            let base_len = last_space + 1;
-                            matches.iter().map(|m| m[base_len..].to_string()).collect()
-                        } else {
-                            matches.clone()
-                        };
-                        print!("\n{}\n$ {}", display.join("  "), input);
-                        io::stdout().flush().unwrap();
-                    }
-                } else {
-                    print!("\x07");
-                    io::stdout().flush().unwrap();
-                }
-            }
-            127 | 8 => {
-                if !input.is_empty() {
-                    input.pop();
-                    print!("\x08 \x08");
-                    io::stdout().flush().unwrap();
-                }
-                tab_count = 0;
-            }
-            c => {
-                input.push(c as char);
-                print!("{}", c as char);
-                io::stdout().flush().unwrap();
-                tab_count = 0;
-            }
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &Context<'_>,
+    ) -> RlResult<(usize, Vec<String>)> {
+        let input = &line[..pos];
+        if input.contains(' ') {
+            let completions = find_file_completions(input);
+            // Return replacements from position 0 (full line replacements)
+            Ok((0, completions))
+        } else {
+            let completions = find_command_completions(input);
+            // For commands, return full replacement candidates
+            Ok((0, completions))
         }
     }
+}
 
-    termios::tcsetattr(&stdin, SetArg::TCSANOW, &orig_termios).unwrap();
-    input
+pub fn build_editor() -> Editor<ShellHelper, rustyline::history::DefaultHistory> {
+    let config = Config::builder()
+        .completion_type(CompletionType::List)
+        .bell_style(rustyline::config::BellStyle::Audible)
+        .build();
+    let mut rl = Editor::with_config(config).unwrap();
+    rl.set_helper(Some(ShellHelper));
+    rl
 }
 
 fn find_command_completions(partial: &str) -> Vec<String> {
@@ -162,22 +114,4 @@ fn find_file_completions(input: &str) -> Vec<String> {
 
     matches.sort();
     matches
-}
-
-fn longest_common_prefix(strings: &[String]) -> String {
-    if strings.is_empty() {
-        return String::new();
-    }
-    let first = &strings[0];
-    let mut len = first.len();
-    for s in &strings[1..] {
-        len = len.min(s.len());
-        for (i, (a, b)) in first.chars().zip(s.chars()).enumerate() {
-            if a != b {
-                len = len.min(i);
-                break;
-            }
-        }
-    }
-    first[..len].to_string()
 }

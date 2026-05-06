@@ -9,7 +9,6 @@ use nix::libc;
 use nix::sys::wait::waitpid;
 use nix::unistd::{self, ForkResult};
 
-use crate::history;
 use crate::parser::{open_redirect_file, write_error, write_output, Redirect};
 use crate::BUILTINS;
 
@@ -106,8 +105,8 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
             }
         }
         "history" => {
-            let n = args.first().and_then(|s| s.parse::<usize>().ok());
-            history::print_history(n);
+            // history in pipeline context - just print all (no rl access here)
+            // This path is only hit from pipeline's eval_command
         }
         _ => run_external(command, args, redirect),
     }

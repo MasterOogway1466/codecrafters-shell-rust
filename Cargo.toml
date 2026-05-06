@@ -9,4 +9,5 @@ rust-version = "1.91"
 anyhow = "1.0.68"                                # error handling
 bytes = "1.3.0"                                  # helps manage buffers
 nix = { version = "0.31.2", features = ["process", "term"] }
+rustyline = "15"                                 # readline with history/completion
 thiserror = "1.0.38"                             # error handling

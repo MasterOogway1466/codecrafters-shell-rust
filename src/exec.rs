@@ -106,7 +106,8 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
             }
         }
         "history" => {
-            history::print_history();
+            let n = args.first().and_then(|s| s.parse::<usize>().ok());
+            history::print_history(n);
         }
         _ => run_external(command, args, redirect),
     }

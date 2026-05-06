@@ -62,8 +62,11 @@ pub fn run_background(command: &str, args: &[String]) {
 
 pub fn print_jobs() {
     JOBS.with(|jobs| {
-        for job in jobs.borrow().iter() {
-            println!("[{}]  Running                    {} &", job.id, job.command);
+        let jobs = jobs.borrow();
+        let len = jobs.len();
+        for (i, job) in jobs.iter().enumerate() {
+            let marker = if i == len - 1 { "+" } else { "-" };
+            println!("[{}]{}  {:<24}{} &", job.id, marker, "Running", job.command);
         }
     });
 }

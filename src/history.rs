@@ -1,3 +1,5 @@
+use std::fs;
+
 use rustyline::history::History;
 use rustyline::Editor;
 
@@ -12,5 +14,15 @@ pub fn print_history(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory
     };
     for (i, entry) in hist.iter().enumerate().skip(start) {
         println!("{:>5}  {}", i + 1, entry);
+    }
+}
+
+pub fn load_history_file(rl: &mut Editor<ShellHelper, rustyline::history::DefaultHistory>, path: &str) {
+    if let Ok(contents) = fs::read_to_string(path) {
+        for line in contents.lines() {
+            if !line.is_empty() {
+                let _ = rl.add_history_entry(line);
+            }
+        }
     }
 }

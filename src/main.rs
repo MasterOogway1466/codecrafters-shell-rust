@@ -42,8 +42,14 @@ fn main() {
                     let (tokens, redirect) = parse_redirects(commands.into_iter().next().unwrap());
                     let (cmd, args) = tokens.split_first().unwrap();
                     if cmd == "history" {
-                        let n = args.first().and_then(|s| s.parse::<usize>().ok());
-                        history::print_history(&rl, n);
+                        if args.first().map(|s| s.as_str()) == Some("-r") {
+                            if let Some(path) = args.get(1) {
+                                history::load_history_file(&mut rl, path);
+                            }
+                        } else {
+                            let n = args.first().and_then(|s| s.parse::<usize>().ok());
+                            history::print_history(&rl, n);
+                        }
                     } else {
                         eval_command(cmd, args, &redirect);
                     }

@@ -10,6 +10,7 @@ use nix::sys::wait::waitpid;
 use nix::unistd::{self, ForkResult};
 
 use crate::parser::{open_redirect_file, write_error, write_output, Redirect};
+use crate::jobs;
 use crate::BUILTINS;
 
 pub fn find_in_path(name: &str) -> Option<String> {
@@ -107,6 +108,9 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
         "history" => {
             // history in pipeline context - just print all (no rl access here)
             // This path is only hit from pipeline's eval_command
+        }
+        "jobs" => {
+            jobs::print_jobs();
         }
         _ => run_external(command, args, redirect),
     }

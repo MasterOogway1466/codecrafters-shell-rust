@@ -1,6 +1,7 @@
 mod completion;
 mod exec;
 mod history;
+mod jobs;
 mod parser;
 mod pipeline;
 
@@ -11,7 +12,7 @@ use exec::eval_command;
 use parser::{parse_input, parse_redirects};
 use pipeline::run_pipeline;
 
-pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history"];
+pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history", "jobs"];
 
 fn main() {
     let mut rl = build_editor();

@@ -50,6 +50,10 @@ fn main() {
                             if let Some(path) = args.get(1) {
                                 history::write_history_file(&rl, path);
                             }
+                        } else if args.first().map(|s| s.as_str()) == Some("-a") {
+                            if let Some(path) = args.get(1) {
+                                history::append_history_file(&rl, path);
+                            }
                         } else {
                             let n = args.first().and_then(|s| s.parse::<usize>().ok());
                             history::print_history(&rl, n);

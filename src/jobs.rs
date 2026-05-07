@@ -18,7 +18,6 @@ struct Job {
 
 thread_local! {
     static JOBS: RefCell<Vec<Job>> = RefCell::new(Vec::new());
-    static NEXT_JOB_ID: RefCell<usize> = RefCell::new(1);
 }
 
 pub fn run_background(command: &str, args: &[String]) {
@@ -40,10 +39,15 @@ pub fn run_background(command: &str, args: &[String]) {
 
     match unsafe { unistd::fork() } {
         Ok(ForkResult::Parent { child }) => {
-            let job_id = NEXT_JOB_ID.with(|id| {
-                let current = *id.borrow();
-                *id.borrow_mut() = current + 1;
-                current
+            let job_id = JOBS.with(|jobs| {
+                let jobs = jobs.borrow();
+                let mut id = 1;
+                loop {
+                    if !jobs.iter().any(|j| j.id == id) {
+                        break id;
+                    }
+                    id += 1;
+                }
             });
             JOBS.with(|jobs| {
                 jobs.borrow_mut().push(Job {

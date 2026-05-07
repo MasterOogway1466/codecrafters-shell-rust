@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::ffi::CString;
 
 use nix::libc;
-use nix::sys::wait::{WaitPidFlag, waitpid};
+use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::{self, ForkResult, Pid};
 
 use crate::exec::find_in_path;
@@ -18,6 +18,37 @@ struct Job {
 
 thread_local! {
     static JOBS: RefCell<Vec<Job>> = RefCell::new(Vec::new());
+}
+
+fn next_job_id(jobs: &[Job]) -> usize {
+    let mut id = 1;
+    while jobs.iter().any(|j| j.id == id) {
+        id += 1;
+    }
+    id
+}
+
+fn check_exited(jobs: &mut [Job]) {
+    for job in jobs.iter_mut() {
+        if !job.done {
+            match waitpid(job.pid, Some(WaitPidFlag::WNOHANG)) {
+                Ok(WaitStatus::Exited(_, _) | WaitStatus::Signaled(_, _, _)) => {
+                    job.done = true;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn job_marker(index: usize, total: usize) -> &'static str {
+    if index == total - 1 {
+        "+"
+    } else if index == total - 2 {
+        "-"
+    } else {
+        " "
+    }
 }
 
 pub fn run_background(command: &str, args: &[String]) {
@@ -39,25 +70,17 @@ pub fn run_background(command: &str, args: &[String]) {
 
     match unsafe { unistd::fork() } {
         Ok(ForkResult::Parent { child }) => {
-            let job_id = JOBS.with(|jobs| {
-                let jobs = jobs.borrow();
-                let mut id = 1;
-                loop {
-                    if !jobs.iter().any(|j| j.id == id) {
-                        break id;
-                    }
-                    id += 1;
-                }
-            });
             JOBS.with(|jobs| {
-                jobs.borrow_mut().push(Job {
+                let mut jobs = jobs.borrow_mut();
+                let job_id = next_job_id(&jobs);
+                jobs.push(Job {
                     id: job_id,
                     pid: child,
                     command: full_command,
                     done: false,
                 });
+                println!("[{}] {}", job_id, child);
             });
-            println!("[{}] {}", job_id, child);
         }
         Ok(ForkResult::Child) => {
             unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL); }
@@ -71,73 +94,28 @@ pub fn run_background(command: &str, args: &[String]) {
 pub fn reap_jobs() {
     JOBS.with(|jobs| {
         let mut jobs = jobs.borrow_mut();
+        check_exited(&mut jobs);
 
-        // Check each job for completion
-        for job in jobs.iter_mut() {
-            if !job.done {
-                match waitpid(job.pid, Some(WaitPidFlag::WNOHANG)) {
-                    Ok(nix::sys::wait::WaitStatus::Exited(_, _)) => {
-                        job.done = true;
-                    }
-                    Ok(nix::sys::wait::WaitStatus::Signaled(_, _, _)) => {
-                        job.done = true;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // Print Done lines for newly completed jobs
         let len = jobs.len();
         for (i, job) in jobs.iter().enumerate() {
             if job.done {
-                let marker = if i == len - 1 {
-                    "+"
-                } else if i == len - 2 {
-                    "-"
-                } else {
-                    " "
-                };
+                let marker = job_marker(i, len);
                 println!("[{}]{}  {:<24}{}", job.id, marker, "Done", job.command);
             }
         }
 
-        // Remove done jobs
         jobs.retain(|job| !job.done);
     });
 }
 
 pub fn print_jobs() {
     JOBS.with(|jobs| {
-        // First reap completed jobs
-        {
-            let mut jobs = jobs.borrow_mut();
-            for job in jobs.iter_mut() {
-                if !job.done {
-                    match waitpid(job.pid, Some(WaitPidFlag::WNOHANG)) {
-                        Ok(nix::sys::wait::WaitStatus::Exited(_, _)) => {
-                            job.done = true;
-                        }
-                        Ok(nix::sys::wait::WaitStatus::Signaled(_, _, _)) => {
-                            job.done = true;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
+        let mut jobs = jobs.borrow_mut();
+        check_exited(&mut jobs);
 
-        // Print all jobs with correct markers
-        let jobs_ref = jobs.borrow();
-        let len = jobs_ref.len();
-        for (i, job) in jobs_ref.iter().enumerate() {
-            let marker = if i == len - 1 {
-                "+"
-            } else if i == len - 2 {
-                "-"
-            } else {
-                " "
-            };
+        let len = jobs.len();
+        for (i, job) in jobs.iter().enumerate() {
+            let marker = job_marker(i, len);
             if job.done {
                 println!("[{}]{}  {:<24}{}", job.id, marker, "Done", job.command);
             } else {
@@ -145,8 +123,6 @@ pub fn print_jobs() {
             }
         }
 
-        // Remove done jobs
-        drop(jobs_ref);
-        jobs.borrow_mut().retain(|job| !job.done);
+        jobs.retain(|job| !job.done);
     });
 }

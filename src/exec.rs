@@ -85,10 +85,7 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
     }
 
     match command {
-        "echo" => {
-            let output = args.join(" ");
-            write_output(&output, redirect);
-        }
+        "echo" => write_output(&args.join(" "), redirect),
         "type" => {
             let target = &args[0];
             let output = if BUILTINS.contains(&target.as_str()) {
@@ -103,7 +100,7 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
         }
         "pwd" => match env::current_dir() {
             Ok(path) => write_output(&path.display().to_string(), redirect),
-            Err(_) => println!("Error getting current directory"),
+            Err(_) => eprintln!("Error getting current directory"),
         },
         "cd" => {
             let target = if args.is_empty() {
@@ -115,28 +112,28 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
                 write_error(&format!("cd: {}: No such file or directory", target), redirect);
             }
         }
-        "history" => {
-            // history in pipeline context - just print all (no rl access here)
-            // This path is only hit from pipeline's eval_command
-        }
-        "jobs" => {
-            jobs::print_jobs();
-        }
-        "complete" => {
-            if args.first().map(|s| s.as_str()) == Some("-p") {
-                if let Some(cmd_name) = args.get(1) {
-                    let found = COMPLETIONS.with(|c| c.borrow().get(cmd_name.as_str()).cloned());
-                    match found {
-                        Some(path) => println!("complete -C '{}' {}", path, cmd_name),
-                        None => eprintln!("complete: {}: no completion specification", cmd_name),
-                    }
-                }
-            } else if args.first().map(|s| s.as_str()) == Some("-C") {
-                if let (Some(path), Some(cmd_name)) = (args.get(1), args.get(2)) {
-                    COMPLETIONS.with(|c| c.borrow_mut().insert(cmd_name.clone(), path.clone()));
+        "history" => {} // handled in main.rs (needs rl access)
+        "jobs" => jobs::print_jobs(),
+        "complete" => handle_complete(args),
+        _ => run_external(command, args, redirect),
+    }
+}
+
+fn handle_complete(args: &[String]) {
+    match args.first().map(|s| s.as_str()) {
+        Some("-p") => {
+            if let Some(cmd_name) = args.get(1) {
+                match get_completer(cmd_name) {
+                    Some(path) => println!("complete -C '{}' {}", path, cmd_name),
+                    None => eprintln!("complete: {}: no completion specification", cmd_name),
                 }
             }
         }
-        _ => run_external(command, args, redirect),
+        Some("-C") => {
+            if let (Some(path), Some(cmd_name)) = (args.get(1), args.get(2)) {
+                COMPLETIONS.with(|c| c.borrow_mut().insert(cmd_name.clone(), path.clone()));
+            }
+        }
+        _ => {}
     }
 }

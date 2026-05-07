@@ -12,7 +12,7 @@ use exec::eval_command;
 use parser::{parse_input, parse_redirects};
 use pipeline::run_pipeline;
 
-pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history", "jobs"];
+pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history", "jobs", "complete"];
 
 fn main() {
     let mut rl = build_editor();

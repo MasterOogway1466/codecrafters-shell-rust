@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
 use std::fs;
@@ -12,6 +14,10 @@ use nix::unistd::{self, ForkResult};
 use crate::parser::{open_redirect_file, write_error, write_output, Redirect};
 use crate::jobs;
 use crate::BUILTINS;
+
+thread_local! {
+    static COMPLETIONS: RefCell<HashMap<String, String>> = RefCell::new(HashMap::new());
+}
 
 pub fn find_in_path(name: &str) -> Option<String> {
     let path_env = env::var("PATH").ok()?;
@@ -115,7 +121,15 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
         "complete" => {
             if args.first().map(|s| s.as_str()) == Some("-p") {
                 if let Some(cmd_name) = args.get(1) {
-                    eprintln!("complete: {}: no completion specification", cmd_name);
+                    let found = COMPLETIONS.with(|c| c.borrow().get(cmd_name.as_str()).cloned());
+                    match found {
+                        Some(path) => println!("complete -C '{}' {}", path, cmd_name),
+                        None => eprintln!("complete: {}: no completion specification", cmd_name),
+                    }
+                }
+            } else if args.first().map(|s| s.as_str()) == Some("-C") {
+                if let (Some(path), Some(cmd_name)) = (args.get(1), args.get(2)) {
+                    COMPLETIONS.with(|c| c.borrow_mut().insert(cmd_name.clone(), path.clone()));
                 }
             }
         }

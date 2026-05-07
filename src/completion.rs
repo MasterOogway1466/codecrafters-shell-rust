@@ -37,19 +37,12 @@ impl Completer for ShellHelper {
             let words: Vec<&str> = input.split_whitespace().collect();
             let cmd = words.first().copied().unwrap_or("");
             if let Some(script) = get_completer(cmd) {
-                let current_word = input.rsplit(' ').next().unwrap_or("");
-                let prev_word = if words.len() >= 2 && !current_word.is_empty() {
-                    words[words.len() - 2]
-                } else if current_word.is_empty() && !words.is_empty() {
-                    words[words.len() - 1]
-                } else {
-                    ""
-                };
-                // If line ends with space, current word is empty and prev is last word
                 let (cur, prev) = if input.ends_with(' ') {
                     ("", words.last().copied().unwrap_or(""))
                 } else {
-                    (current_word, if words.len() >= 2 { words[words.len() - 2] } else { "" })
+                    let current_word = input.rsplit(' ').next().unwrap_or("");
+                    let prev = if words.len() >= 2 { words[words.len() - 2] } else { "" };
+                    (current_word, prev)
                 };
                 let completions = run_completer_script(&script, cmd, cur, prev);
                 if !completions.is_empty() {

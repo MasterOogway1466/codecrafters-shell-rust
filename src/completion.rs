@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::process::Command;
 
 use rustyline::completion::Completer;
 use rustyline::highlight::Highlighter;
@@ -8,6 +9,7 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use rustyline::{CompletionType, Config, Context, Editor, Helper, Result as RlResult};
 
+use crate::exec::get_completer;
 use crate::BUILTINS;
 
 #[derive(Clone)]
@@ -31,6 +33,16 @@ impl Completer for ShellHelper {
     ) -> RlResult<(usize, Vec<String>)> {
         let input = &line[..pos];
         if input.contains(' ') {
+            // Check if there's a registered completer for this command
+            let cmd = input.split_whitespace().next().unwrap_or("");
+            if let Some(script) = get_completer(cmd) {
+                let completions = run_completer_script(&script, input);
+                if !completions.is_empty() {
+                    let last_space = input.rfind(' ').unwrap_or(0);
+                    let start = last_space + 1;
+                    return Ok((start, completions));
+                }
+            }
             let last_space = input.rfind(' ').unwrap_or(0);
             let start = last_space + 1;
             let completions = find_file_completions(input);
@@ -54,6 +66,21 @@ pub fn build_editor() -> Editor<ShellHelper, rustyline::history::DefaultHistory>
     let mut rl = Editor::with_config(config).unwrap();
     rl.set_helper(Some(ShellHelper));
     rl
+}
+
+fn run_completer_script(script: &str, _input: &str) -> Vec<String> {
+    let output = Command::new(script).output();
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            stdout
+                .lines()
+                .filter(|l| !l.is_empty())
+                .map(|l| format!("{} ", l))
+                .collect()
+        }
+        _ => Vec::new(),
+    }
 }
 
 fn find_command_completions(partial: &str) -> Vec<String> {

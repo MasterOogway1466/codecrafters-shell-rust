@@ -19,6 +19,10 @@ thread_local! {
     static COMPLETIONS: RefCell<HashMap<String, String>> = RefCell::new(HashMap::new());
 }
 
+pub fn get_completer(command: &str) -> Option<String> {
+    COMPLETIONS.with(|c| c.borrow().get(command).cloned())
+}
+
 pub fn find_in_path(name: &str) -> Option<String> {
     let path_env = env::var("PATH").ok()?;
     path_env.split(':').find_map(|dir| {

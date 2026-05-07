@@ -112,6 +112,13 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
         "jobs" => {
             jobs::print_jobs();
         }
+        "complete" => {
+            if args.first().map(|s| s.as_str()) == Some("-p") {
+                if let Some(cmd_name) = args.get(1) {
+                    eprintln!("complete: {}: no completion specification", cmd_name);
+                }
+            }
+        }
         _ => run_external(command, args, redirect),
     }
 }

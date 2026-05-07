@@ -34,9 +34,24 @@ impl Completer for ShellHelper {
         let input = &line[..pos];
         if input.contains(' ') {
             // Check if there's a registered completer for this command
-            let cmd = input.split_whitespace().next().unwrap_or("");
+            let words: Vec<&str> = input.split_whitespace().collect();
+            let cmd = words.first().copied().unwrap_or("");
             if let Some(script) = get_completer(cmd) {
-                let completions = run_completer_script(&script, input);
+                let current_word = input.rsplit(' ').next().unwrap_or("");
+                let prev_word = if words.len() >= 2 && !current_word.is_empty() {
+                    words[words.len() - 2]
+                } else if current_word.is_empty() && !words.is_empty() {
+                    words[words.len() - 1]
+                } else {
+                    ""
+                };
+                // If line ends with space, current word is empty and prev is last word
+                let (cur, prev) = if input.ends_with(' ') {
+                    ("", words.last().copied().unwrap_or(""))
+                } else {
+                    (current_word, if words.len() >= 2 { words[words.len() - 2] } else { "" })
+                };
+                let completions = run_completer_script(&script, cmd, cur, prev);
                 if !completions.is_empty() {
                     let last_space = input.rfind(' ').unwrap_or(0);
                     let start = last_space + 1;
@@ -68,8 +83,12 @@ pub fn build_editor() -> Editor<ShellHelper, rustyline::history::DefaultHistory>
     rl
 }
 
-fn run_completer_script(script: &str, _input: &str) -> Vec<String> {
-    let output = Command::new(script).output();
+fn run_completer_script(script: &str, cmd: &str, current_word: &str, prev_word: &str) -> Vec<String> {
+    let output = Command::new(script)
+        .arg(cmd)
+        .arg(current_word)
+        .arg(prev_word)
+        .output();
     match output {
         Ok(out) if out.status.success() => {
             let stdout = String::from_utf8_lossy(&out.stdout);

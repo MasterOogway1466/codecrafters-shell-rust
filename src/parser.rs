@@ -73,21 +73,40 @@ fn expand_token(token: &str) -> String {
 
     while let Some(c) = chars.next() {
         if c == '$' {
-            let mut name = String::new();
-            while let Some(&ch) = chars.peek() {
-                if ch.is_ascii_alphanumeric() || ch == '_' {
+            if chars.peek() == Some(&'{') {
+                chars.next(); // consume '{'
+                let mut name = String::new();
+                while let Some(&ch) = chars.peek() {
+                    if ch == '}' {
+                        chars.next();
+                        break;
+                    }
                     name.push(ch);
                     chars.next();
-                } else {
-                    break;
                 }
-            }
-            if name.is_empty() {
-                result.push('$');
+                if !name.is_empty() {
+                    let value = VARIABLES.with(|v| v.borrow().get(&name).cloned());
+                    if let Some(val) = value {
+                        result.push_str(&val);
+                    }
+                }
             } else {
-                let value = VARIABLES.with(|v| v.borrow().get(&name).cloned());
-                if let Some(val) = value {
-                    result.push_str(&val);
+                let mut name = String::new();
+                while let Some(&ch) = chars.peek() {
+                    if ch.is_ascii_alphanumeric() || ch == '_' {
+                        name.push(ch);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                if name.is_empty() {
+                    result.push('$');
+                } else {
+                    let value = VARIABLES.with(|v| v.borrow().get(&name).cloned());
+                    if let Some(val) = value {
+                        result.push_str(&val);
+                    }
                 }
             }
         } else {

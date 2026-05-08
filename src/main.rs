@@ -15,7 +15,7 @@ use rustyline::Editor;
 
 use crate::completion::ShellHelper;
 
-pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history", "jobs", "complete"];
+pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history", "jobs", "complete", "declare"];
 
 type Rl = Editor<ShellHelper, rustyline::history::DefaultHistory>;
 

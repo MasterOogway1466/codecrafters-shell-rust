@@ -64,7 +64,11 @@ pub fn parse_input(input: &str) -> Vec<String> {
 }
 
 pub fn expand_variables(tokens: Vec<String>) -> Vec<String> {
-    tokens.into_iter().map(|token| expand_token(&token)).collect()
+    tokens
+        .into_iter()
+        .map(|token| expand_token(&token))
+        .filter(|t| !t.is_empty())
+        .collect()
 }
 
 fn expand_token(token: &str) -> String {

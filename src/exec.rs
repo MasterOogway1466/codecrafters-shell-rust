@@ -115,6 +115,7 @@ pub fn eval_command(command: &str, args: &[String], redirect: &Redirect) {
         "history" => {} // handled in main.rs (needs rl access)
         "jobs" => jobs::print_jobs(),
         "complete" => handle_complete(args),
+        "declare" => crate::declare::handle_declare(args),
         _ => run_external(command, args, redirect),
     }
 }

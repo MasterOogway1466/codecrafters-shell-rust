@@ -1,4 +1,5 @@
 mod completion;
+mod declare;
 mod exec;
 mod history;
 mod jobs;

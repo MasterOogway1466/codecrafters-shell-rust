@@ -44,7 +44,7 @@ impl Completer for ShellHelper {
                     let prev = if words.len() >= 2 { words[words.len() - 2] } else { "" };
                     (current_word, prev)
                 };
-                let completions = run_completer_script(&script, cmd, cur, prev);
+                let completions = run_completer_script(&script, cmd, cur, prev, input, pos);
                 if !completions.is_empty() {
                     let last_space = input.rfind(' ').unwrap_or(0);
                     let start = last_space + 1;
@@ -76,11 +76,13 @@ pub fn build_editor() -> Editor<ShellHelper, rustyline::history::DefaultHistory>
     rl
 }
 
-fn run_completer_script(script: &str, cmd: &str, current_word: &str, prev_word: &str) -> Vec<String> {
+fn run_completer_script(script: &str, cmd: &str, current_word: &str, prev_word: &str, comp_line: &str, comp_point: usize) -> Vec<String> {
     let output = Command::new(script)
         .arg(cmd)
         .arg(current_word)
         .arg(prev_word)
+        .env("COMP_LINE", comp_line)
+        .env("COMP_POINT", comp_point.to_string())
         .output();
     match output {
         Ok(out) if out.status.success() => {

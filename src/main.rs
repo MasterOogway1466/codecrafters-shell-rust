@@ -10,7 +10,7 @@ use std::env;
 
 use completion::build_editor;
 use exec::eval_command;
-use parser::{parse_input, parse_redirects};
+use parser::{expand_variables, parse_input, parse_redirects};
 use pipeline::run_pipeline;
 use rustyline::Editor;
 
@@ -33,7 +33,7 @@ fn main() {
 
         let Ok(input) = rl.readline("$ ") else { break };
         let input = input.trim_end().to_string();
-        let tokens = parse_input(&input);
+        let tokens = expand_variables(parse_input(&input));
         if tokens.is_empty() {
             continue;
         }

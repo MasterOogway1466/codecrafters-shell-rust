@@ -1,6 +1,8 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 
+use crate::declare::VARIABLES;
+
 pub struct Redirect {
     pub stdout_file: Option<String>,
     pub stdout_append: bool,
@@ -59,6 +61,41 @@ pub fn parse_input(input: &str) -> Vec<String> {
         tokens.push(current);
     }
     tokens
+}
+
+pub fn expand_variables(tokens: Vec<String>) -> Vec<String> {
+    tokens.into_iter().map(|token| expand_token(&token)).collect()
+}
+
+fn expand_token(token: &str) -> String {
+    let mut result = String::new();
+    let mut chars = token.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '$' {
+            let mut name = String::new();
+            while let Some(&ch) = chars.peek() {
+                if ch.is_ascii_alphanumeric() || ch == '_' {
+                    name.push(ch);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            if name.is_empty() {
+                result.push('$');
+            } else {
+                let value = VARIABLES.with(|v| v.borrow().get(&name).cloned());
+                if let Some(val) = value {
+                    result.push_str(&val);
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 pub fn parse_redirects(tokens: Vec<String>) -> (Vec<String>, Redirect) {

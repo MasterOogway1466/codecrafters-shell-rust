@@ -1,35 +1,41 @@
-[![progress-banner](https://backend.codecrafters.io/progress/shell/b03e8ab4-fc24-441b-b1fa-f07c3b1b0cbd)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Shell in Rust
 
-This is a starting point for Rust solutions to the
-["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
+A POSIX-like shell built in Rust as part of the [CodeCrafters "Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
 
-In this challenge, you'll build your own POSIX compliant shell that's capable of
-interpreting shell commands, running external programs and builtin commands like
-cd, pwd, echo and more. Along the way, you'll learn about shell command parsing,
-REPLs, builtin commands, and more.
+## Features
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+- **Builtins**: `echo`, `cd`, `pwd`, `type`, `exit`, `history`, `jobs`, `complete`, `declare`
+- **External commands**: PATH lookup and `fork`/`execvp` execution
+- **Quoting**: single quotes, double quotes, backslash escaping
+- **Redirects**: `>`, `>>`, `2>`, `2>>` for stdout/stderr
+- **Pipelines**: multi-stage pipes with mixed builtins and externals
+- **Background jobs**: `&` operator, `jobs` listing, automatic reaping
+- **History**: readline history with `history` builtin, `-r`/`-w`/`-a` flags, `HISTFILE` support
+- **Tab completion**: builtin/command/file completions via rustyline, custom completer scripts (`complete -C`), `complete -p`/`-r` management, `COMP_LINE`/`COMP_POINT` env vars
+- **Shell variables**: `declare NAME=VALUE`, `declare -p`, identifier validation, `$VAR` and `${VAR}` parameter expansion
 
-# Passing the first stage
+## Project Structure
 
-The entry point for your `shell` implementation is in `src/main.rs`. Study and
-uncomment the relevant code, then run the command below to execute the tests on
-our servers:
-
-```sh
-codecrafters submit
+```
+src/
+  main.rs        — entry point, main loop, module wiring
+  parser.rs      — tokenization, quoting, redirects, variable expansion
+  exec.rs        — command dispatch, builtins, external execution
+  pipeline.rs    — multi-stage pipeline execution
+  completion.rs  — rustyline completer, completer scripts
+  history.rs     — history file operations
+  jobs.rs        — background job management
+  declare.rs     — shell variable storage and declare builtin
 ```
 
-Time to move on to the next stage!
+## Dependencies
 
-# Stage 2 & beyond
+- [rustyline](https://crates.io/crates/rustyline) — readline with history and tab completion
+- [nix](https://crates.io/crates/nix) — safe wrappers for fork/exec/waitpid/pipe
+- [anyhow](https://crates.io/crates/anyhow) / [thiserror](https://crates.io/crates/thiserror) — error handling
 
-Note: This section is for stages 2 and beyond.
+## Running
 
-1. Ensure you have `cargo (1.93)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
-   output will be streamed to your terminal.
+```sh
+./your_program.sh
+```

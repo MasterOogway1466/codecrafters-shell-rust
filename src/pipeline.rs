@@ -71,7 +71,6 @@ fn fork_external(
         Ok(ForkResult::Parent { child }) => child,
         Ok(ForkResult::Child) => {
             setup_child_io(prev_read_fd, pipe_fds, redirect);
-            drop_pipe_fds(prev_read_fd, pipe_fds);
             let _ = unistd::execvp(&c_path, &c_args);
             std::process::exit(1);
         }
@@ -93,7 +92,6 @@ fn fork_builtin(
         Ok(ForkResult::Parent { child }) => child,
         Ok(ForkResult::Child) => {
             setup_child_io(prev_read_fd, pipe_fds, redirect);
-            drop_pipe_fds(prev_read_fd, pipe_fds);
             let no_redirect = Redirect {
                 stdout_file: None,
                 stdout_append: false,
@@ -105,15 +103,6 @@ fn fork_builtin(
         }
         Err(_) => panic!("fork failed"),
     }
-}
-
-fn drop_pipe_fds(prev_read_fd: &Option<OwnedFd>, pipe_fds: &Option<(OwnedFd, OwnedFd)>) {
-    // Safety: we're in the child after dup2 — these are references to the parent's
-    // OwnedFds which will be dropped when this function's caller returns, but we
-    // want to close them now to avoid fd leaks. Since the child will exit/exec
-    // shortly, the drop on the references suffices via the outer scope.
-    let _ = prev_read_fd;
-    let _ = pipe_fds;
 }
 
 fn setup_child_io(prev_read_fd: &Option<OwnedFd>, pipe_fds: &Option<(OwnedFd, OwnedFd)>, redirect: &Redirect) {

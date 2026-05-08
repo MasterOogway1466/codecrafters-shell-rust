@@ -3,15 +3,14 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 
 use rustyline::history::History;
-use rustyline::Editor;
 
-use crate::completion::ShellHelper;
+use crate::Rl;
 
 thread_local! {
     static LAST_APPENDED: Cell<usize> = Cell::new(0);
 }
 
-pub fn print_history(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>, n: Option<usize>) {
+pub fn print_history(rl: &Rl, n: Option<usize>) {
     let hist = rl.history();
     let total = hist.len();
     let start = match n {
@@ -23,7 +22,7 @@ pub fn print_history(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory
     }
 }
 
-pub fn load_history_file(rl: &mut Editor<ShellHelper, rustyline::history::DefaultHistory>, path: &str) {
+pub fn load_history_file(rl: &mut Rl, path: &str) {
     if let Ok(contents) = fs::read_to_string(path) {
         for line in contents.lines() {
             if !line.is_empty() {
@@ -33,11 +32,11 @@ pub fn load_history_file(rl: &mut Editor<ShellHelper, rustyline::history::Defaul
     }
 }
 
-pub fn mark_appended(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>) {
+pub fn mark_appended(rl: &Rl) {
     LAST_APPENDED.with(|c| c.set(rl.history().len()));
 }
 
-pub fn write_history_file(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>, path: &str) {
+pub fn write_history_file(rl: &Rl, path: &str) {
     let hist = rl.history();
     let mut content = String::new();
     for entry in hist.iter() {
@@ -47,7 +46,7 @@ pub fn write_history_file(rl: &Editor<ShellHelper, rustyline::history::DefaultHi
     let _ = fs::write(path, content);
 }
 
-pub fn append_history_file(rl: &Editor<ShellHelper, rustyline::history::DefaultHistory>, path: &str) {
+pub fn append_history_file(rl: &Rl, path: &str) {
     let hist = rl.history();
     let total = hist.len();
     let last = LAST_APPENDED.with(|c| c.get());

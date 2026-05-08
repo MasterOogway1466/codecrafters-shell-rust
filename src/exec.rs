@@ -64,6 +64,7 @@ fn run_external(command: &str, args: &[String], redirect: &Redirect) {
             let _ = waitpid(child, None);
         }
         Ok(ForkResult::Child) => {
+            unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL); }
             if let Some(ref file_path) = redirect.stdout_file {
                 let file = open_redirect_file(file_path, redirect.stdout_append);
                 unsafe { libc::dup2(file.as_raw_fd(), libc::STDOUT_FILENO); }

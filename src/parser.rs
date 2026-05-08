@@ -71,6 +71,10 @@ pub fn expand_variables(tokens: Vec<String>) -> Vec<String> {
         .collect()
 }
 
+fn lookup_var(name: &str) -> Option<String> {
+    VARIABLES.with(|v| v.borrow().get(name).cloned())
+}
+
 fn expand_token(token: &str) -> String {
     let mut result = String::new();
     let mut chars = token.chars().peekable();
@@ -78,7 +82,7 @@ fn expand_token(token: &str) -> String {
     while let Some(c) = chars.next() {
         if c == '$' {
             if chars.peek() == Some(&'{') {
-                chars.next(); // consume '{'
+                chars.next();
                 let mut name = String::new();
                 while let Some(&ch) = chars.peek() {
                     if ch == '}' {
@@ -88,11 +92,8 @@ fn expand_token(token: &str) -> String {
                     name.push(ch);
                     chars.next();
                 }
-                if !name.is_empty() {
-                    let value = VARIABLES.with(|v| v.borrow().get(&name).cloned());
-                    if let Some(val) = value {
-                        result.push_str(&val);
-                    }
+                if let Some(val) = lookup_var(&name) {
+                    result.push_str(&val);
                 }
             } else {
                 let mut name = String::new();
@@ -106,11 +107,8 @@ fn expand_token(token: &str) -> String {
                 }
                 if name.is_empty() {
                     result.push('$');
-                } else {
-                    let value = VARIABLES.with(|v| v.borrow().get(&name).cloned());
-                    if let Some(val) = value {
-                        result.push_str(&val);
-                    }
+                } else if let Some(val) = lookup_var(&name) {
+                    result.push_str(&val);
                 }
             }
         } else {

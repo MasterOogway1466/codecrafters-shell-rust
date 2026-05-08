@@ -18,7 +18,7 @@ use crate::completion::ShellHelper;
 
 pub const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history", "jobs", "complete", "declare"];
 
-type Rl = Editor<ShellHelper, rustyline::history::DefaultHistory>;
+pub type Rl = Editor<ShellHelper, rustyline::history::DefaultHistory>;
 
 fn main() {
     let mut rl = build_editor();

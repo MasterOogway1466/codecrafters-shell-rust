@@ -134,6 +134,11 @@ fn handle_complete(args: &[String]) {
                 COMPLETIONS.with(|c| c.borrow_mut().insert(cmd_name.clone(), path.clone()));
             }
         }
+        Some("-r") => {
+            if let Some(cmd_name) = args.get(1) {
+                COMPLETIONS.with(|c| c.borrow_mut().remove(cmd_name));
+            }
+        }
         _ => {}
     }
 }
